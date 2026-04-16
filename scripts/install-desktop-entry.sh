@@ -41,22 +41,23 @@ main() {
 
   write_desktop_file \
     "$STARTER_DESKTOP_FILE" \
-    "ChatDemo DGX" \
+    "博微 智能助手" \
     "$ROOT_DIR/scripts/desktop-start.sh" \
     "applications-internet" \
-    "Start the branded AI chat demo"
+    "启动博微智能助手前后端"
 
   write_desktop_file \
     "$STOPPER_DESKTOP_FILE" \
-    "ChatDemo DGX Stop" \
+    "停止 博微 智能助手" \
     "$ROOT_DIR/scripts/desktop-stop.sh" \
     "process-stop" \
-    "Stop the branded AI chat demo"
+    "停止博微智能助手前后端"
 
   if [[ -d "$DESKTOP_DIR" ]]; then
-    cp "$STARTER_DESKTOP_FILE" "$DESKTOP_DIR/ChatDemo DGX.desktop"
-    cp "$STOPPER_DESKTOP_FILE" "$DESKTOP_DIR/ChatDemo DGX Stop.desktop"
-    chmod +x "$DESKTOP_DIR/ChatDemo DGX.desktop" "$DESKTOP_DIR/ChatDemo DGX Stop.desktop"
+    rm -f "$DESKTOP_DIR/ChatDemo DGX.desktop" "$DESKTOP_DIR/ChatDemo DGX Stop.desktop"
+    cp "$STARTER_DESKTOP_FILE" "$DESKTOP_DIR/博微 智能助手.desktop"
+    cp "$STOPPER_DESKTOP_FILE" "$DESKTOP_DIR/停止 博微 智能助手.desktop"
+    chmod +x "$DESKTOP_DIR/博微 智能助手.desktop" "$DESKTOP_DIR/停止 博微 智能助手.desktop"
   fi
 
   echo "[ok] Desktop launchers installed."

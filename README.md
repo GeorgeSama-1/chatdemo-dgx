@@ -128,8 +128,7 @@ bash ./scripts/dev.sh
 - 如果缺少 `frontend/.env.local`，从根目录 `.env.example` 复制一份
 - 如果缺少前端依赖，自动执行 `npm install`
 - 如果缺少后端依赖，自动尝试安装
-- 如果 `MODEL_START_ENABLED=true`，会先启动模型服务
-- 再启动后端和前端
+- 启动后端和前端
 
 首次运行前，建议先把以下真实配置写入：
 
@@ -153,8 +152,8 @@ make desktop-install
 
 安装后会生成两个桌面入口：
 
-- `ChatDemo DGX`: 后台启动前后端并自动打开浏览器
-- `ChatDemo DGX Stop`: 停止已启动的前后端服务
+- `博微 智能助手`: 后台启动前后端并自动打开浏览器
+- `停止 博微 智能助手`: 停止已启动的前后端服务
 
 它们也会被安装到：
 
@@ -172,61 +171,16 @@ make desktop-stop
 
 - 自动检查并补齐环境文件
 - 自动检查并安装依赖
-- 如果 `MODEL_START_ENABLED=true`，自动拉起模型服务
+- 在屏幕中间显示启动提示窗口，展示当前启动阶段
 - 在仓库根目录 `.runtime/` 下写入日志和 PID 文件
 - 自动打开 `http://127.0.0.1:3000`
 
 常见运行文件：
 
-- `.runtime/model.log`
 - `.runtime/backend.log`
 - `.runtime/frontend.log`
-- `.runtime/model.pid`
 - `.runtime/backend.pid`
 - `.runtime/frontend.pid`
-
-## DGX 一键启动模型 + 前后端
-
-如果你希望在 DGX 桌面上点击一个图标，同时启动：
-
-- vLLM 模型服务
-- FastAPI 后端
-- Next.js 前端
-
-可以在 `backend/.env` 里这样配置：
-
-```env
-MODEL_BASE_URL=http://127.0.0.1:8000/v1
-MODEL_API_KEY=
-MODEL_NAME=Qwen3.5-9B
-MODEL_ENABLE_THINKING=false
-BACKEND_HOST=0.0.0.0
-BACKEND_PORT=8001
-REQUEST_TIMEOUT=120
-
-MODEL_START_ENABLED=true
-MODEL_CONDA_SH=/home/your-user/miniforge3/etc/profile.d/conda.sh
-MODEL_CONDA_ENV=vllm
-MODEL_START_COMMAND=vllm serve ~/models/Qwen3.5-9B --port 8000 --max-model-len 262144 --reasoning-parser qwen3 --served-model-name Qwen3.5-9B
-MODEL_HEALTH_URL=http://127.0.0.1:8000/v1/models
-```
-
-前端 `frontend/.env.local` 对应配置：
-
-```env
-NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8001
-NEXT_PUBLIC_PRODUCT_NAME=博微 智能助手
-NEXT_PUBLIC_BRAND_NAME=BW Labs
-NEXT_PUBLIC_BRAND_ACCENT=#0f4c81
-NEXT_PUBLIC_MODEL_LABEL=Qwen3.5-9B
-```
-
-这样配置后：
-
-- 双击桌面 `ChatDemo DGX` 图标
-- 会先检查模型服务
-- 模型没启动时自动执行你配置的 `conda activate vllm && vllm serve ...`
-- 等模型 ready 后再启动后端和前端
 
 ## 验证命令
 
