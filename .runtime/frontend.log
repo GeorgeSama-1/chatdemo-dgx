@@ -1,0 +1,23 @@
+
+> chatdemo-dgx-frontend@0.1.0 dev
+> node ./node_modules/next/dist/bin/next dev --hostname 0.0.0.0 --port 3000
+
+   ▲ Next.js 15.5.0
+   - Local:        http://localhost:3000
+   - Network:      http://0.0.0.0:3000
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 6.3s
+ ○ Compiling / ...
+ ✓ Compiled / in 11.4s (1074 modules)
+ GET / 200 in 12490ms
+ HEAD / 200 in 48ms
+ GET / 200 in 128ms
+ GET / 200 in 113ms
+   Reload env: .env.local
+ ✓ Compiled in 1064ms (478 modules)
+ ✓ Compiled in 749ms (478 modules)
+   Reload env: .env.local
+ ✓ Compiled in 532ms (478 modules)
+ ✓ Compiled in 779ms (478 modules)

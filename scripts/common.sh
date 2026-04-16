@@ -1,0 +1,157 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+FRONTEND_DIR="$ROOT_DIR/frontend"
+BACKEND_DIR="$ROOT_DIR/backend"
+BACKEND_ENV="$BACKEND_DIR/.env"
+FRONTEND_ENV="$FRONTEND_DIR/.env.local"
+RUNTIME_DIR="$ROOT_DIR/.runtime"
+BACKEND_PORT="${CHATDEMO_BACKEND_PORT:-8000}"
+FRONTEND_PORT="${CHATDEMO_FRONTEND_PORT:-3000}"
+
+ensure_env_files() {
+  if [[ ! -f "$BACKEND_ENV" ]]; then
+    cp "$ROOT_DIR/.env.example" "$BACKEND_ENV"
+    echo "[setup] Created backend/.env from .env.example"
+  fi
+
+  if [[ ! -f "$FRONTEND_ENV" ]]; then
+    cp "$ROOT_DIR/.env.example" "$FRONTEND_ENV"
+    echo "[setup] Created frontend/.env.local from .env.example"
+  fi
+}
+
+ensure_frontend_deps() {
+  if [[ ! -d "$FRONTEND_DIR/node_modules" ]]; then
+    echo "[setup] Installing frontend dependencies..."
+    (cd "$FRONTEND_DIR" && npm install --no-audit --no-fund --progress=false)
+  fi
+}
+
+python_has_backend_deps() {
+  "$1" - <<'PY'
+import fastapi
+import httpx
+import pydantic_settings
+import uvicorn
+PY
+}
+
+ensure_backend_deps() {
+  local backend_python=""
+
+  if [[ -x "$BACKEND_DIR/.venv/bin/python" ]] && python_has_backend_deps "$BACKEND_DIR/.venv/bin/python" >/dev/null 2>&1; then
+    backend_python="$BACKEND_DIR/.venv/bin/python"
+  elif python_has_backend_deps "python3" >/dev/null 2>&1; then
+    backend_python="python3"
+  else
+    echo "[setup] Installing backend dependencies..."
+    if python3 -m venv "$BACKEND_DIR/.venv" >/dev/null 2>&1 && [[ -x "$BACKEND_DIR/.venv/bin/pip" ]]; then
+      "$BACKEND_DIR/.venv/bin/pip" install -r "$BACKEND_DIR/requirements-dev.txt"
+      backend_python="$BACKEND_DIR/.venv/bin/python"
+    else
+      python3 -m pip install --break-system-packages -r "$BACKEND_DIR/requirements-dev.txt"
+      backend_python="python3"
+    fi
+  fi
+
+  echo "$backend_python" > "$BACKEND_DIR/.backend-python"
+}
+
+load_backend_runtime() {
+  if [[ -f "$BACKEND_DIR/.backend-python" ]]; then
+    BACKEND_PYTHON="$(cat "$BACKEND_DIR/.backend-python")"
+  elif [[ -x "$BACKEND_DIR/.venv/bin/python" ]]; then
+    BACKEND_PYTHON="$BACKEND_DIR/.venv/bin/python"
+  else
+    BACKEND_PYTHON="python3"
+  fi
+
+  export BACKEND_PYTHON
+}
+
+ensure_runtime_dir() {
+  mkdir -p "$RUNTIME_DIR"
+}
+
+ensure_prerequisites() {
+  ensure_env_files
+  ensure_frontend_deps
+  ensure_backend_deps
+  load_backend_runtime
+  ensure_runtime_dir
+}
+
+is_pid_running() {
+  local pid_file="$1"
+
+  if [[ ! -f "$pid_file" ]]; then
+    return 1
+  fi
+
+  local pid
+  pid="$(cat "$pid_file" 2>/dev/null || true)"
+  if [[ -z "$pid" ]]; then
+    return 1
+  fi
+
+  kill -0 "$pid" >/dev/null 2>&1
+}
+
+cleanup_stale_pid() {
+  local pid_file="$1"
+
+  if ! is_pid_running "$pid_file"; then
+    rm -f "$pid_file"
+  fi
+}
+
+wait_for_url() {
+  local url="$1"
+  local retries="${2:-30}"
+  local label="${3:-service}"
+
+  for _ in $(seq 1 "$retries"); do
+    if curl -fsS "$url" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+
+  echo "[error] Timed out waiting for $label at $url" >&2
+  return 1
+}
+
+get_frontend_product_name() {
+  if [[ -f "$FRONTEND_ENV" ]]; then
+    local configured_name
+    configured_name="$(grep -E '^NEXT_PUBLIC_PRODUCT_NAME=' "$FRONTEND_ENV" | tail -n 1 | cut -d'=' -f2- || true)"
+    if [[ -n "$configured_name" ]]; then
+      echo "$configured_name"
+      return 0
+    fi
+  fi
+
+  echo "博微 智能助手"
+}
+
+backend_is_ready() {
+  local response
+  response="$(curl -fsS "http://127.0.0.1:${BACKEND_PORT}/api/health" 2>/dev/null || true)"
+  [[ "$response" == *'"service":"chatdemo-dgx-backend"'* ]]
+}
+
+frontend_is_ready() {
+  local product_name
+  local response
+
+  product_name="$(get_frontend_product_name)"
+  response="$(curl -fsS "http://127.0.0.1:${FRONTEND_PORT}" 2>/dev/null || true)"
+  [[ -n "$response" && "$response" == *"$product_name"* ]]
+}
+
+frontend_port_in_use() {
+  curl -fsS "http://127.0.0.1:${FRONTEND_PORT}" >/dev/null 2>&1
+}
