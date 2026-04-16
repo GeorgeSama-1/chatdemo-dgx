@@ -5,10 +5,47 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
+MODEL_PID_FILE="$RUNTIME_DIR/model.pid"
 BACKEND_PID_FILE="$RUNTIME_DIR/backend.pid"
 FRONTEND_PID_FILE="$RUNTIME_DIR/frontend.pid"
+MODEL_LOG="$RUNTIME_DIR/model.log"
 BACKEND_LOG="$RUNTIME_DIR/backend.log"
 FRONTEND_LOG="$RUNTIME_DIR/frontend.log"
+
+start_model() {
+  if ! model_start_is_enabled; then
+    return 0
+  fi
+
+  cleanup_stale_pid "$MODEL_PID_FILE"
+
+  if model_is_ready; then
+    echo "[info] Model endpoint is already available."
+    return 0
+  fi
+
+  if [[ -z "$MODEL_CONDA_SH" || -z "$MODEL_START_COMMAND" || -z "$MODEL_HEALTH_URL" ]]; then
+    echo "[error] Model auto-start is enabled but model startup settings are incomplete." >&2
+    return 1
+  fi
+
+  if is_pid_running "$MODEL_PID_FILE"; then
+    echo "[info] Model launcher is already running."
+    return 0
+  fi
+
+  echo "[run] Starting model service in background..."
+  (
+    cd "$ROOT_DIR"
+    exec bash -lc "source \"$MODEL_CONDA_SH\" && conda activate \"$MODEL_CONDA_ENV\" && $MODEL_START_COMMAND"
+  ) >"$MODEL_LOG" 2>&1 &
+  echo $! > "$MODEL_PID_FILE"
+
+  if ! wait_for_url "$MODEL_HEALTH_URL" 180 "model service"; then
+    rm -f "$MODEL_PID_FILE"
+    return 1
+  fi
+}
 
 start_backend() {
   cleanup_stale_pid "$BACKEND_PID_FILE"
@@ -70,6 +107,7 @@ start_frontend() {
 
 main() {
   ensure_prerequisites
+  start_model
   start_backend
   start_frontend
 

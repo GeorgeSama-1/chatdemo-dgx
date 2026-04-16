@@ -8,8 +8,13 @@ BACKEND_DIR="$ROOT_DIR/backend"
 BACKEND_ENV="$BACKEND_DIR/.env"
 FRONTEND_ENV="$FRONTEND_DIR/.env.local"
 RUNTIME_DIR="$ROOT_DIR/.runtime"
-BACKEND_PORT="${CHATDEMO_BACKEND_PORT:-8000}"
-FRONTEND_PORT="${CHATDEMO_FRONTEND_PORT:-3000}"
+BACKEND_PORT="${CHATDEMO_BACKEND_PORT:-}"
+FRONTEND_PORT="${CHATDEMO_FRONTEND_PORT:-}"
+MODEL_START_ENABLED="${CHATDEMO_MODEL_START_ENABLED:-}"
+MODEL_CONDA_SH="${CHATDEMO_MODEL_CONDA_SH:-}"
+MODEL_CONDA_ENV="${CHATDEMO_MODEL_CONDA_ENV:-}"
+MODEL_START_COMMAND="${CHATDEMO_MODEL_START_COMMAND:-}"
+MODEL_HEALTH_URL="${CHATDEMO_MODEL_HEALTH_URL:-}"
 
 ensure_env_files() {
   if [[ ! -f "$BACKEND_ENV" ]]; then
@@ -76,12 +81,92 @@ ensure_runtime_dir() {
   mkdir -p "$RUNTIME_DIR"
 }
 
+read_env_value() {
+  local env_file="$1"
+  local key="$2"
+
+  if [[ ! -f "$env_file" ]]; then
+    return 0
+  fi
+
+  grep -E "^${key}=" "$env_file" | tail -n 1 | cut -d'=' -f2- || true
+}
+
+detect_conda_sh() {
+  if [[ -f "$HOME/miniforge3/etc/profile.d/conda.sh" ]]; then
+    echo "$HOME/miniforge3/etc/profile.d/conda.sh"
+    return 0
+  fi
+
+  if [[ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]]; then
+    echo "$HOME/miniconda3/etc/profile.d/conda.sh"
+    return 0
+  fi
+
+  if [[ -f "$HOME/anaconda3/etc/profile.d/conda.sh" ]]; then
+    echo "$HOME/anaconda3/etc/profile.d/conda.sh"
+    return 0
+  fi
+
+  if command -v conda >/dev/null 2>&1; then
+    local conda_bin
+    conda_bin="$(command -v conda)"
+    local candidate
+    candidate="$(cd "$(dirname "$conda_bin")/.." && pwd)/etc/profile.d/conda.sh"
+    if [[ -f "$candidate" ]]; then
+      echo "$candidate"
+      return 0
+    fi
+  fi
+}
+
+resolve_runtime_settings() {
+  if [[ -z "$BACKEND_PORT" ]]; then
+    BACKEND_PORT="$(read_env_value "$BACKEND_ENV" "BACKEND_PORT")"
+  fi
+  BACKEND_PORT="${BACKEND_PORT:-8000}"
+
+  FRONTEND_PORT="${FRONTEND_PORT:-3000}"
+
+  if [[ -z "$MODEL_START_ENABLED" ]]; then
+    MODEL_START_ENABLED="$(read_env_value "$BACKEND_ENV" "MODEL_START_ENABLED")"
+  fi
+  MODEL_START_ENABLED="${MODEL_START_ENABLED:-false}"
+
+  if [[ -z "$MODEL_CONDA_SH" ]]; then
+    MODEL_CONDA_SH="$(read_env_value "$BACKEND_ENV" "MODEL_CONDA_SH")"
+  fi
+  MODEL_CONDA_SH="${MODEL_CONDA_SH:-$(detect_conda_sh || true)}"
+
+  if [[ -z "$MODEL_CONDA_ENV" ]]; then
+    MODEL_CONDA_ENV="$(read_env_value "$BACKEND_ENV" "MODEL_CONDA_ENV")"
+  fi
+  MODEL_CONDA_ENV="${MODEL_CONDA_ENV:-vllm}"
+
+  if [[ -z "$MODEL_START_COMMAND" ]]; then
+    MODEL_START_COMMAND="$(read_env_value "$BACKEND_ENV" "MODEL_START_COMMAND")"
+  fi
+
+  if [[ -z "$MODEL_HEALTH_URL" ]]; then
+    MODEL_HEALTH_URL="$(read_env_value "$BACKEND_ENV" "MODEL_HEALTH_URL")"
+  fi
+
+  if [[ -z "$MODEL_HEALTH_URL" ]]; then
+    local model_base_url
+    model_base_url="$(read_env_value "$BACKEND_ENV" "MODEL_BASE_URL")"
+    if [[ -n "$model_base_url" ]]; then
+      MODEL_HEALTH_URL="${model_base_url%/}/models"
+    fi
+  fi
+}
+
 ensure_prerequisites() {
   ensure_env_files
   ensure_frontend_deps
   ensure_backend_deps
   load_backend_runtime
   ensure_runtime_dir
+  resolve_runtime_settings
 }
 
 is_pid_running() {
@@ -154,4 +239,12 @@ frontend_is_ready() {
 
 frontend_port_in_use() {
   curl -fsS "http://127.0.0.1:${FRONTEND_PORT}" >/dev/null 2>&1
+}
+
+model_start_is_enabled() {
+  [[ "${MODEL_START_ENABLED,,}" == "true" ]]
+}
+
+model_is_ready() {
+  [[ -n "$MODEL_HEALTH_URL" ]] && curl -fsS "$MODEL_HEALTH_URL" >/dev/null 2>&1
 }

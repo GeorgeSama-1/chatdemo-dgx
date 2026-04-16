@@ -5,6 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
+MODEL_PID_FILE="$RUNTIME_DIR/model.pid"
 BACKEND_PID_FILE="$RUNTIME_DIR/backend.pid"
 FRONTEND_PID_FILE="$RUNTIME_DIR/frontend.pid"
 
@@ -30,6 +31,7 @@ main() {
   ensure_runtime_dir
   stop_service "frontend" "$FRONTEND_PID_FILE"
   stop_service "backend" "$BACKEND_PID_FILE"
+  stop_service "model" "$MODEL_PID_FILE"
 }
 
 main "$@"
