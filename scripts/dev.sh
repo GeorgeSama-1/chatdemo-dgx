@@ -31,7 +31,7 @@ run_servers() {
   echo "[run] Starting frontend on http://localhost:3000"
   (
     cd "$FRONTEND_DIR"
-    npm run dev
+    "$NPM_BIN" run dev
   ) &
   FRONTEND_PID=$!
 

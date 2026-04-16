@@ -114,7 +114,7 @@ start_frontend() {
   echo "[run] Starting frontend in background..."
   (
     cd "$FRONTEND_DIR"
-    exec node ./node_modules/next/dist/bin/next dev --hostname 0.0.0.0 --port "$FRONTEND_PORT"
+    exec "$NODE_BIN" ./node_modules/next/dist/bin/next dev --hostname 0.0.0.0 --port "$FRONTEND_PORT"
   ) >"$FRONTEND_LOG" 2>&1 &
   echo $! > "$FRONTEND_PID_FILE"
 

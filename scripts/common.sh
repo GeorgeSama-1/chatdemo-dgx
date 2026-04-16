@@ -15,6 +15,74 @@ MODEL_CONDA_SH="${CHATDEMO_MODEL_CONDA_SH:-}"
 MODEL_CONDA_ENV="${CHATDEMO_MODEL_CONDA_ENV:-}"
 MODEL_START_COMMAND="${CHATDEMO_MODEL_START_COMMAND:-}"
 MODEL_HEALTH_URL="${CHATDEMO_MODEL_HEALTH_URL:-}"
+NODE_BIN="${CHATDEMO_NODE_BIN:-}"
+NPM_BIN="${CHATDEMO_NPM_BIN:-}"
+
+load_user_shell_env() {
+  local candidate
+  for candidate in "$HOME/.profile" "$HOME/.bash_profile" "$HOME/.bashrc" "$HOME/.zprofile" "$HOME/.zshrc"; do
+    if [[ -f "$candidate" ]]; then
+      # shellcheck disable=SC1090
+      source "$candidate" >/dev/null 2>&1 || true
+    fi
+  done
+}
+
+detect_node_bin() {
+  if command -v node >/dev/null 2>&1; then
+    command -v node
+    return 0
+  fi
+
+  local candidate
+  for candidate in \
+    "$HOME/.nvm/versions/node"/*/bin/node \
+    "$HOME/.local/bin/node" \
+    "/usr/local/bin/node" \
+    "/usr/bin/node"; do
+    if [[ -x "$candidate" ]]; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+}
+
+detect_npm_bin() {
+  if command -v npm >/dev/null 2>&1; then
+    command -v npm
+    return 0
+  fi
+
+  local candidate
+  for candidate in \
+    "$HOME/.nvm/versions/node"/*/bin/npm \
+    "$HOME/.local/bin/npm" \
+    "/usr/local/bin/npm" \
+    "/usr/bin/npm"; do
+    if [[ -x "$candidate" ]]; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+}
+
+ensure_node_runtime() {
+  load_user_shell_env
+
+  if [[ -z "$NODE_BIN" ]]; then
+    NODE_BIN="$(detect_node_bin || true)"
+  fi
+
+  if [[ -z "$NPM_BIN" ]]; then
+    NPM_BIN="$(detect_npm_bin || true)"
+  fi
+
+  if [[ -z "$NODE_BIN" || -z "$NPM_BIN" ]]; then
+    echo "[error] Unable to find node/npm. Please ensure Node.js is installed and available in your shell profile." >&2
+    echo "[error] You can also set CHATDEMO_NODE_BIN and CHATDEMO_NPM_BIN explicitly." >&2
+    return 1
+  fi
+}
 
 ensure_env_files() {
   if [[ ! -f "$BACKEND_ENV" ]]; then
@@ -31,7 +99,7 @@ ensure_env_files() {
 ensure_frontend_deps() {
   if [[ ! -d "$FRONTEND_DIR/node_modules" ]]; then
     echo "[setup] Installing frontend dependencies..."
-    (cd "$FRONTEND_DIR" && npm install --no-audit --no-fund --progress=false)
+    (cd "$FRONTEND_DIR" && "$NPM_BIN" install --no-audit --no-fund --progress=false)
   fi
 }
 
@@ -161,6 +229,7 @@ resolve_runtime_settings() {
 }
 
 ensure_prerequisites() {
+  ensure_node_runtime
   ensure_env_files
   ensure_frontend_deps
   ensure_backend_deps
