@@ -57,6 +57,35 @@ describe("ChatShell", () => {
     });
   });
 
+  it("switches suggestion cards when the system prompt preset changes", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ model: "Qwen3.5-VL" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+
+    render(<ChatShell />);
+
+    expect(
+      screen.getByRole("button", { name: "帮我梳理这份方案的风险和推进建议" })
+    ).toBeInTheDocument();
+
+    await user.selectOptions(
+      screen.getByLabelText("system prompt 模板"),
+      "power-inspection"
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", {
+          name: "分析这张绝缘子图片，判断是否存在可见缺陷",
+        })
+      ).toBeInTheDocument();
+    });
+  });
+
   it("shows uploaded image previews before sending", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.spyOn(global, "fetch").mockImplementation(async (input, init) => {
@@ -168,5 +197,28 @@ describe("ChatShell", () => {
     });
 
     fetchMock.mockRestore();
+  });
+
+  it("deletes the current session from the list and session storage", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ model: "Qwen3.5-VL" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+
+    render(<ChatShell />);
+
+    await user.click(screen.getByRole("button", { name: "新建会话" }));
+    expect(screen.getAllByRole("button", { name: /新建会话/ }).length).toBeGreaterThan(1);
+
+    await user.click(screen.getByRole("button", { name: "删除当前会话" }));
+
+    await waitFor(() => {
+      const stored = window.sessionStorage.getItem("chatdemo-dgx.sessions");
+      const sessions = stored ? (JSON.parse(stored) as Array<{ id: string }>) : [];
+      expect(sessions).toHaveLength(1);
+    });
   });
 });

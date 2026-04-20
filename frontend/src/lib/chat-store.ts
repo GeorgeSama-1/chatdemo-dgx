@@ -27,6 +27,20 @@ export const SYSTEM_PROMPT_PRESETS: SystemPromptPreset[] = [
   },
 ];
 
+const GENERAL_SUGGESTIONS = [
+  "总结今天的项目进展并生成周报草稿",
+  "帮我梳理这份方案的风险和推进建议",
+  "把这段技术说明改写成适合管理层阅读的版本",
+  "根据会议纪要整理后续行动项",
+];
+
+const POWER_INSPECTION_SUGGESTIONS = [
+  "分析这张绝缘子图片，判断是否存在可见缺陷",
+  "根据巡检图片生成结论、依据和处置建议",
+  "对比这两张设备图片，说明异常差异",
+  "把这段巡检记录整理成简明汇报",
+];
+
 export function getMatchingSystemPromptPreset(systemPrompt: string): string {
   const matchedPreset = SYSTEM_PROMPT_PRESETS.find(
     (preset) => preset.prompt === systemPrompt
@@ -55,13 +69,18 @@ export function getDefaultSettings(): ChatSettings {
   };
 }
 
+export function getSuggestionsForSystemPrompt(systemPrompt: string): string[] {
+  const presetId = getMatchingSystemPromptPreset(systemPrompt);
+
+  if (presetId === "power-inspection") {
+    return POWER_INSPECTION_SUGGESTIONS;
+  }
+
+  return GENERAL_SUGGESTIONS;
+}
+
 export function getInitialSuggestions(): string[] {
-  return [
-    "总结今天的项目进展并生成周报草稿",
-    "帮我梳理这份方案的风险和推进建议",
-    "把这段技术说明改写成适合管理层阅读的版本",
-    "根据会议纪要整理后续行动项",
-  ];
+  return getSuggestionsForSystemPrompt(DEFAULT_SYSTEM_PROMPT);
 }
 
 export function loadSessions(): ChatSession[] {
@@ -70,13 +89,22 @@ export function loadSessions(): ChatSession[] {
   }
 
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw =
+      window.sessionStorage.getItem(STORAGE_KEY) ??
+      window.localStorage.getItem(STORAGE_KEY);
     if (!raw) {
       return [];
     }
 
     const sessions = JSON.parse(raw) as ChatSession[];
-    return Array.isArray(sessions) ? sessions : [];
+    if (!Array.isArray(sessions)) {
+      return [];
+    }
+
+    // Migrate legacy shared history into window-scoped storage so multiple
+    // tabs can chat independently without overwriting each other's streams.
+    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+    return sessions;
   } catch {
     return [];
   }
@@ -87,7 +115,7 @@ export function saveSessions(sessions: ChatSession[]): void {
     return;
   }
 
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+  window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
 }
 
 export function buildSessionTitle(content: string): string {

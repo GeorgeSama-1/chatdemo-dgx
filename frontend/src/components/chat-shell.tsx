@@ -7,7 +7,7 @@ import {
   buildSessionTitle,
   createSession,
   getDefaultSettings,
-  getInitialSuggestions,
+  getSuggestionsForSystemPrompt,
   loadSessions,
   saveSessions,
   toApiMessages,
@@ -74,7 +74,6 @@ function upsertSession(
 }
 
 export function ChatShell() {
-  const suggestions = useMemo(() => getInitialSuggestions(), []);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState("");
   const [draft, setDraft] = useState("");
@@ -147,6 +146,10 @@ export function ChatShell() {
 
   const activeSession =
     sessions.find((session) => session.id === activeSessionId) ?? sessions[0];
+  const suggestions = useMemo(
+    () => getSuggestionsForSystemPrompt(settings.system_prompt),
+    [settings.system_prompt]
+  );
 
   function handleNewSession() {
     const nextSession = createSession();
@@ -171,6 +174,30 @@ export function ChatShell() {
       }))
     );
     setPendingAttachments([]);
+    setError(null);
+  }
+
+  function handleDeleteSession() {
+    if (!activeSession || isStreaming || isUploading) {
+      return;
+    }
+
+    const remainingSessions = sessions.filter(
+      (session) => session.id !== activeSession.id
+    );
+
+    if (remainingSessions.length === 0) {
+      const nextSession = createSession();
+      setSessions([nextSession]);
+      setActiveSessionId(nextSession.id);
+    } else {
+      const nextActiveSession = remainingSessions[0];
+      setSessions(remainingSessions);
+      setActiveSessionId(nextActiveSession.id);
+    }
+
+    setPendingAttachments([]);
+    setDraft("");
     setError(null);
   }
 
@@ -440,9 +467,6 @@ export function ChatShell() {
               <div>
                 <p className="eyebrow">企业内部 AI 助手</p>
                 <h2>{PRODUCT_NAME}</h2>
-                <p className="surface-copy">
-                  欢迎使用企业化对话 demo。你可以直接提问，或从推荐问题开始体验。
-                </p>
               </div>
               <button
                 type="button"
@@ -465,11 +489,8 @@ export function ChatShell() {
               <div className="welcome-panel">
                 <div className="welcome-card">
                   <p className="eyebrow">欢迎语</p>
-                  <h3>我可以帮助你处理企业知识问答、文档整理和方案分析。</h3>
-                  <p>
-                    这个版本已经预留品牌化区域、模型状态、参数面板和流式输出能力，
-                    适合用作公司内部 AI 产品 demo。
-                  </p>
+                  <h3>欢迎使用企业化对话 demo。</h3>
+                  <p>你可以直接提问，或从推荐问题开始体验。</p>
                 </div>
 
                 <div className="suggestions">
@@ -562,6 +583,14 @@ export function ChatShell() {
                   disabled={isStreaming || isUploading || !activeSession}
                 >
                   清空当前会话
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={handleDeleteSession}
+                  disabled={isStreaming || isUploading || !activeSession}
+                >
+                  删除当前会话
                 </button>
               </div>
             </div>

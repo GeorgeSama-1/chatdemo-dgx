@@ -1,10 +1,19 @@
 import {
   createSession,
   getInitialSuggestions,
+  getSuggestionsForSystemPrompt,
+  POWER_INSPECTION_SYSTEM_PROMPT,
+  loadSessions,
+  saveSessions,
   toApiMessages,
 } from "./chat-store";
 
 describe("chat-store", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+  });
+
   it("creates a new empty session with assistant welcome metadata", () => {
     const session = createSession();
 
@@ -20,6 +29,15 @@ describe("chat-store", () => {
       "帮我梳理这份方案的风险和推进建议",
       "把这段技术说明改写成适合管理层阅读的版本",
       "根据会议纪要整理后续行动项",
+    ]);
+  });
+
+  it("returns power inspection suggestions for the inspection preset", () => {
+    expect(getSuggestionsForSystemPrompt(POWER_INSPECTION_SYSTEM_PROMPT)).toEqual([
+      "分析这张绝缘子图片，判断是否存在可见缺陷",
+      "根据巡检图片生成结论、依据和处置建议",
+      "对比这两张设备图片，说明异常差异",
+      "把这段巡检记录整理成简明汇报",
     ]);
   });
 
@@ -46,5 +64,15 @@ describe("chat-store", () => {
         attachments: [],
       },
     ]);
+  });
+
+  it("stores sessions in sessionStorage so browser windows do not overwrite each other", () => {
+    const sessions = [createSession()];
+
+    saveSessions(sessions);
+
+    expect(loadSessions()).toEqual(sessions);
+    expect(window.sessionStorage.getItem("chatdemo-dgx.sessions")).toBeTruthy();
+    expect(window.localStorage.getItem("chatdemo-dgx.sessions")).toBeNull();
   });
 });

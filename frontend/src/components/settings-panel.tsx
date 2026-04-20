@@ -28,7 +28,6 @@ export function SettingsPanel({
       <div className="settings-card">
         <div className="settings-header">
           <h2>生成参数</h2>
-          <p>按企业 demo 的常见调试方式保留基础参数。</p>
         </div>
 
         <label className="field">
