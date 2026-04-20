@@ -194,7 +194,7 @@ resolve_runtime_settings() {
   fi
   BACKEND_PORT="${BACKEND_PORT:-8000}"
 
-  FRONTEND_PORT="${FRONTEND_PORT:-3000}"
+  FRONTEND_PORT="${FRONTEND_PORT:-12322}"
 
   if [[ -z "$MODEL_START_ENABLED" ]]; then
     MODEL_START_ENABLED="$(read_env_value "$BACKEND_ENV" "MODEL_START_ENABLED")"

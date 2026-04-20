@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     backend_host: str = "0.0.0.0"
     backend_port: int = 8000
     request_timeout: float = 60.0
+    uploads_dir: str = ".uploads"
 
 
 @lru_cache

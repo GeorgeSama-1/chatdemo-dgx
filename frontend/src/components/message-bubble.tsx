@@ -27,6 +27,23 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           })}
         </time>
       </div>
+      {message.attachments?.length ? (
+        <div className="message-attachments">
+          {message.attachments.map((attachment) => (
+            <a
+              key={attachment.id}
+              className="message-attachment"
+              href={attachment.previewUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={attachment.previewUrl} alt={attachment.name} />
+              <span>{attachment.name}</span>
+            </a>
+          ))}
+        </div>
+      ) : null}
       <div className="message-content markdown-body">
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}

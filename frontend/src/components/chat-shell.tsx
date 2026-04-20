@@ -17,6 +17,7 @@ import type {
   ChatMessage,
   ChatSession,
   ChatSettings,
+  ChatAttachment,
   HealthState,
   StreamEvent,
 } from "../lib/types";
@@ -30,14 +31,36 @@ const BRAND_NAME = process.env.NEXT_PUBLIC_BRAND_NAME ?? "BW Labs";
 const PRODUCT_NAME = process.env.NEXT_PUBLIC_PRODUCT_NAME ?? "博微 智能助手";
 const BRAND_ACCENT = process.env.NEXT_PUBLIC_BRAND_ACCENT ?? "#0f4c81";
 const FALLBACK_MODEL = process.env.NEXT_PUBLIC_MODEL_LABEL ?? "gpt-oss-chat";
+const MAX_ATTACHMENTS = 4;
 
-function createMessage(role: ChatMessage["role"], content: string): ChatMessage {
+type UploadApiFile = {
+  upload_id: string;
+  name: string;
+  mime_type: string;
+  size: number;
+  preview_url: string;
+};
+
+function createMessage(
+  role: ChatMessage["role"],
+  content: string,
+  attachments?: ChatAttachment[]
+): ChatMessage {
   return {
     id: `msg-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
     role,
     content,
     createdAt: Date.now(),
+    attachments,
   };
+}
+
+function toAbsolutePreviewUrl(previewUrl: string): string {
+  if (previewUrl.startsWith("http://") || previewUrl.startsWith("https://")) {
+    return previewUrl;
+  }
+
+  return `${API_BASE_URL}${previewUrl.startsWith("/") ? "" : "/"}${previewUrl}`;
 }
 
 function upsertSession(
@@ -58,12 +81,15 @@ export function ChatShell() {
   const [settings, setSettings] = useState<ChatSettings>(getDefaultSettings);
   const [isSettingsOpen, setIsSettingsOpen] = useState(true);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [pendingAttachments, setPendingAttachments] = useState<ChatAttachment[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [health, setHealth] = useState<HealthState>({
     status: "online",
     model: FALLBACK_MODEL,
   });
   const abortRef = useRef<AbortController | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const storedSessions = loadSessions();
@@ -127,6 +153,7 @@ export function ChatShell() {
     setSessions((current) => [nextSession, ...current]);
     setActiveSessionId(nextSession.id);
     setDraft("");
+    setPendingAttachments([]);
     setError(null);
   }
 
@@ -143,6 +170,7 @@ export function ChatShell() {
         messages: [],
       }))
     );
+    setPendingAttachments([]);
     setError(null);
   }
 
@@ -176,13 +204,13 @@ export function ChatShell() {
   }
 
   async function sendMessage(content: string) {
-    if (!content.trim() || isStreaming) {
+    if ((!content.trim() && pendingAttachments.length === 0) || isStreaming || isUploading) {
       return;
     }
 
     const session = activeSession ?? createSession();
     const sessionExists = sessions.some((item) => item.id === session.id);
-    const userMessage = createMessage("user", content.trim());
+    const userMessage = createMessage("user", content.trim(), pendingAttachments);
     const assistantMessage = createMessage("assistant", "");
     const nextSession: ChatSession = {
       ...session,
@@ -196,6 +224,7 @@ export function ChatShell() {
 
     setError(null);
     setDraft("");
+    setPendingAttachments([]);
     setIsStreaming(true);
 
     if (sessionExists) {
@@ -281,6 +310,65 @@ export function ChatShell() {
 
   function handleStop() {
     abortRef.current?.abort();
+  }
+
+  function removePendingAttachment(attachmentId: string) {
+    setPendingAttachments((current) =>
+      current.filter((attachment) => attachment.id !== attachmentId)
+    );
+  }
+
+  async function handleFilesSelected(fileList: FileList | null) {
+    if (!fileList?.length) {
+      return;
+    }
+
+    const files = Array.from(fileList);
+    if (pendingAttachments.length + files.length > MAX_ATTACHMENTS) {
+      setError("单次最多上传 4 张图片");
+      return;
+    }
+
+    const formData = new FormData();
+    files.forEach((file) => formData.append("files", file));
+
+    setError(null);
+    setIsUploading(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/uploads`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | { detail?: string; files?: UploadApiFile[] }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(payload?.detail || "图片上传失败，请稍后重试");
+      }
+
+      const uploadedAttachments = (payload?.files ?? []).map((file) => ({
+        id: `att-${file.upload_id}`,
+        uploadId: file.upload_id,
+        name: file.name,
+        mimeType: file.mime_type,
+        size: file.size,
+        previewUrl: toAbsolutePreviewUrl(file.preview_url),
+      }));
+
+      setPendingAttachments((current) => [...current, ...uploadedAttachments]);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error ? caughtError.message : "图片上传失败，请稍后重试"
+      );
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
   }
 
   function formatSessionTime(timestamp: number): string {
@@ -403,6 +491,28 @@ export function ChatShell() {
             )}
 
             <div className="composer">
+              {pendingAttachments.length ? (
+                <div className="attachment-strip">
+                  {pendingAttachments.map((attachment) => (
+                    <div key={attachment.id} className="attachment-chip">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={attachment.previewUrl} alt={attachment.name} />
+                      <div className="attachment-chip-meta">
+                        <strong>{attachment.name}</strong>
+                        <span>{Math.max(1, Math.round(attachment.size / 1024))} KB</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="ghost-button attachment-remove"
+                        onClick={() => removePendingAttachment(attachment.id)}
+                        aria-label={`移除 ${attachment.name}`}
+                      >
+                        删除
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
               <textarea
                 rows={4}
                 value={draft}
@@ -416,13 +526,26 @@ export function ChatShell() {
                 }}
               />
               <div className="composer-actions">
+                <label className="ghost-button upload-trigger" htmlFor="composer-image-upload">
+                  上传图片
+                </label>
+                <input
+                  id="composer-image-upload"
+                  ref={fileInputRef}
+                  aria-label="上传图片"
+                  className="visually-hidden"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  multiple
+                  onChange={(event) => void handleFilesSelected(event.target.files)}
+                />
                 <button
                   type="button"
                   className="primary-button"
                   onClick={() => void sendMessage(draft)}
-                  disabled={isStreaming}
+                  disabled={isStreaming || isUploading}
                 >
-                  发送
+                  {isUploading ? "上传中..." : "发送"}
                 </button>
                 <button
                   type="button"
@@ -436,7 +559,7 @@ export function ChatShell() {
                   type="button"
                   className="ghost-button"
                   onClick={handleClearSession}
-                  disabled={isStreaming || !activeSession}
+                  disabled={isStreaming || isUploading || !activeSession}
                 >
                   清空当前会话
                 </button>

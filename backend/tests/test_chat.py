@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
+from app.config import get_settings
 from app.main import app
 
 
@@ -87,3 +88,67 @@ def test_chat_streams_transformed_ndjson_chunks() -> None:
     assert captured_request_json["chat_template_kwargs"] == {
         "enable_thinking": False
     }
+
+
+def test_chat_builds_multimodal_user_message(tmp_path, monkeypatch) -> None:
+    global captured_request_json
+    captured_request_json = None
+    monkeypatch.setenv("UPLOADS_DIR", str(tmp_path))
+    get_settings.cache_clear()
+
+    upload_response = client.post(
+        "/api/uploads",
+        files=[("files", ("chart.png", b"image-bytes", "image/png"))],
+    )
+    upload_id = upload_response.json()["files"][0]["upload_id"]
+
+    payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": "请分析这张图",
+                "attachments": [upload_id],
+            }
+        ],
+        "temperature": 0.3,
+        "max_tokens": 256,
+    }
+
+    with patch("app.main.httpx.AsyncClient", DummyAsyncClient):
+        with client.stream("POST", "/api/chat", json=payload) as response:
+            body = "".join(
+                chunk.decode("utf-8") if isinstance(chunk, bytes) else chunk
+                for chunk in response.iter_text()
+            )
+
+    assert response.status_code == 200
+    assert '{"type":"done"}' in body
+    assert captured_request_json is not None
+    user_message = captured_request_json["messages"][0]
+    assert isinstance(user_message["content"], list)
+    assert user_message["content"][0] == {"type": "text", "text": "请分析这张图"}
+    assert user_message["content"][1]["type"] == "image_url"
+    assert user_message["content"][1]["image_url"]["url"].startswith(
+        "data:image/png;base64,"
+    )
+
+
+def test_chat_rejects_missing_attachment(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("UPLOADS_DIR", str(tmp_path))
+    get_settings.cache_clear()
+
+    response = client.post(
+        "/api/chat",
+        json={
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "请分析这张图",
+                    "attachments": ["upl_missing"],
+                }
+            ]
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "附件不存在或已失效，请重新上传"

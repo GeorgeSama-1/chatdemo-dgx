@@ -5,6 +5,36 @@ const STORAGE_KEY = "chatdemo-dgx.sessions";
 export const DEFAULT_SYSTEM_PROMPT =
   "你是一名专业、稳重、简洁的企业 AI 助手。优先给出清晰结论、关键依据和可执行建议。";
 
+export const POWER_INSPECTION_SYSTEM_PROMPT =
+  "你是一名专业、严谨、稳重的电力巡检图像分析助手，专注于识别绝缘子及其可见缺陷。你必须基于图像真实可见内容进行判断，优先输出清晰结论、关键依据和可执行建议；对于证据不足、图像质量差或无法确认的情况，应明确说明不确定性，避免臆测和误报。";
+
+export type SystemPromptPreset = {
+  id: string;
+  label: string;
+  prompt: string;
+};
+
+export const SYSTEM_PROMPT_PRESETS: SystemPromptPreset[] = [
+  {
+    id: "general-assistant",
+    label: "通用企业助手",
+    prompt: DEFAULT_SYSTEM_PROMPT,
+  },
+  {
+    id: "power-inspection",
+    label: "电力巡检图像分析助手",
+    prompt: POWER_INSPECTION_SYSTEM_PROMPT,
+  },
+];
+
+export function getMatchingSystemPromptPreset(systemPrompt: string): string {
+  const matchedPreset = SYSTEM_PROMPT_PRESETS.find(
+    (preset) => preset.prompt === systemPrompt
+  );
+
+  return matchedPreset?.id ?? "custom";
+}
+
 export function createSession(): ChatSession {
   const now = Date.now();
 
@@ -73,9 +103,12 @@ export function buildSessionTitle(content: string): string {
 export function toApiMessages(messages: ChatMessage[]) {
   return messages
     .filter((message) => message.role !== "system")
-    .map(({ role, content }) => ({
+    .map(({ role, content, attachments }) => ({
       role,
       content: content.trim(),
+      attachments: attachments?.map((attachment) => attachment.uploadId) ?? [],
     }))
-    .filter((message) => message.content.length > 0);
+    .filter(
+      (message) => message.content.length > 0 || message.attachments.length > 0
+    );
 }

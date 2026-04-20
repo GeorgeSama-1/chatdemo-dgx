@@ -43,6 +43,7 @@ describe("chat-store", () => {
       {
         role: "user",
         content: "你好",
+        attachments: [],
       },
     ]);
   });

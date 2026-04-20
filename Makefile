@@ -1,4 +1,4 @@
-.PHONY: dev install-only desktop-install desktop-start desktop-stop
+.PHONY: dev install-only desktop-install desktop-start desktop-stop server-start server-stop
 
 dev:
 	bash ./scripts/dev.sh
@@ -14,3 +14,9 @@ desktop-start:
 
 desktop-stop:
 	bash ./scripts/desktop-stop.sh
+
+server-start:
+	bash ./scripts/server-start.sh
+
+server-stop:
+	bash ./scripts/server-stop.sh

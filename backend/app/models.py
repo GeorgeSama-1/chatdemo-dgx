@@ -8,7 +8,8 @@ MessageRole = Literal["system", "user", "assistant"]
 
 class ChatMessage(BaseModel):
     role: MessageRole
-    content: str = Field(min_length=1)
+    content: str = ""
+    attachments: list[str] = Field(default_factory=list)
 
 
 class ChatRequest(BaseModel):
@@ -22,3 +23,15 @@ class HealthResponse(BaseModel):
     status: Literal["ok"]
     service: str
     model: str
+
+
+class UploadFileInfo(BaseModel):
+    upload_id: str
+    name: str
+    mime_type: str
+    size: int
+    preview_url: str
+
+
+class UploadResponse(BaseModel):
+    files: list[UploadFileInfo]

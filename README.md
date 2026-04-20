@@ -15,6 +15,7 @@
 - 欢迎语与推荐问题卡片
 - 参数面板：`temperature`、`max_tokens`、`system prompt`
 - Markdown 渲染与代码块显示
+- 多模态图文问答，支持每条消息最多上传 4 张图片
 - 流式输出与停止生成
 - FastAPI 后端安全中转 OpenAI-compatible `chat/completions`
 
@@ -60,6 +61,8 @@ chatdemo-dgx/
   FastAPI 端口，默认 `8000`
 - `REQUEST_TIMEOUT`
   上游请求超时时间，单位秒
+- `UPLOADS_DIR`
+  临时上传图片目录，默认 `.uploads`
 - `MODEL_START_ENABLED`
   是否在一键启动/桌面启动时自动拉起模型服务
 - `MODEL_CONDA_SH`
@@ -74,7 +77,7 @@ chatdemo-dgx/
 ### 前端
 
 - `NEXT_PUBLIC_API_BASE_URL`
-  前端访问后端的地址，例如 `http://localhost:8000`
+  前端访问后端的地址，例如 `http://172.20.0.160:8000`
 - `NEXT_PUBLIC_PRODUCT_NAME`
   产品名称
 - `NEXT_PUBLIC_BRAND_NAME`
@@ -89,12 +92,19 @@ chatdemo-dgx/
 ```bash
 cd backend
 python3 -m pip install --break-system-packages -r requirements-dev.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 启动后可访问：
 
 - `http://localhost:8000/api/health`
+
+本地多模态开发推荐拓扑：
+
+- 前端：`http://127.0.0.1:12322`
+- 后端：`http://127.0.0.1:8000`
+- 多模态模型：另一台可访问服务器上的 `vLLM/OpenAI-compatible` 接口
+- 图片先上传到本项目后端，再由后端转发给多模态模型
 
 ## 启动前端
 
@@ -106,7 +116,7 @@ npm run dev
 
 启动后可访问：
 
-- `http://localhost:3000`
+- `http://localhost:12322`
 
 ## 一键启动
 
@@ -141,6 +151,74 @@ bash ./scripts/dev.sh
 make install-only
 ```
 
+## GPU 服务器一键启动
+
+如果你已经把项目部署到 GPU 服务器，并且当前配置如下：
+
+- 后端：`172.20.0.160:8000`
+- 前端：`172.20.0.160:12322`
+- 模型服务：`http://172.20.0.160:8688/v1`
+
+那么在 GPU 服务器上执行：
+
+```bash
+cd /home/hujing/chatdemo-dgx
+make server-start
+```
+
+或：
+
+```bash
+bash ./scripts/server-start.sh
+```
+
+脚本会自动：
+
+- 检查前后端依赖
+- 后台启动 FastAPI 后端 `8000`
+- 如有需要先构建前端
+- 后台启动 Next.js 前端 `12322`
+- 将日志写入 `.runtime/backend.log` 和 `.runtime/frontend.log`
+
+停止服务：
+
+```bash
+cd /home/hujing/chatdemo-dgx
+make server-stop
+```
+
+或：
+
+```bash
+bash ./scripts/server-stop.sh
+```
+
+### 在本机是否可以使用
+
+可以，但要满足这些条件：
+
+- GPU 服务器上的 `make server-start` 已执行成功
+- 你的本机可以访问 `172.20.0.160`
+- 公司内网或服务器防火墙没有拦住 `12322` 和 `8000`
+
+满足以上条件后，你在本机浏览器里直接打开：
+
+```text
+http://172.20.0.160:12322
+```
+
+就可以使用页面。
+
+如果页面能打开但发送消息时报 `Failed to fetch`，优先检查：
+
+- GPU 服务器上的后端是否正常监听 `8000`
+- `frontend/.env.local` 中的 `NEXT_PUBLIC_API_BASE_URL` 是否为 `http://172.20.0.160:8000`
+- 本机能否访问：
+
+```bash
+curl http://172.20.0.160:8000/api/health
+```
+
 ## DGX 桌面图标启动
 
 如果你的 DGX 有 Ubuntu / GNOME / KDE 这类桌面环境，可以安装桌面图标：
@@ -173,7 +251,7 @@ make desktop-stop
 - 自动检查并安装依赖
 - 在屏幕中间显示启动提示窗口，展示当前启动阶段
 - 在仓库根目录 `.runtime/` 下写入日志和 PID 文件
-- 自动打开 `http://127.0.0.1:3000`
+- 自动打开 `http://127.0.0.1:12322`
 
 常见运行文件：
 
@@ -230,6 +308,33 @@ npm run build
 
 - 成功时为 `application/x-ndjson` 流式响应
 - 每行一个事件，例如 `delta`、`error`、`done`
+
+### `POST /api/uploads`
+
+使用 `multipart/form-data` 上传图片，返回：
+
+- `upload_id`
+- `name`
+- `mime_type`
+- `size`
+- `preview_url`
+
+限制：
+
+- 单次最多 4 张图
+- 支持 `PNG/JPG/JPEG/WEBP`
+- 单张最大 10 MB
+
+### `GET /api/uploads/{upload_id}/preview`
+
+返回临时上传图片内容，用于前端缩略图和历史预览。
+
+## 多模态说明
+
+- 当前版本支持每条用户消息最多携带 4 张图片
+- 图片先上传到本项目后端的临时目录，再由后端转换成 OpenAI-compatible 多模态消息
+- 临时图片默认不做长期持久化，服务重启后旧图片可能失效
+- 适合本机开发调试，后续可以迁移到公司内网服务器
 
 ## 品牌化改造入口
 

@@ -1,17 +1,19 @@
 from collections.abc import AsyncIterator
 
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.responses import StreamingResponse
 
 from app.config import get_settings
-from app.models import ChatRequest, HealthResponse
+from app.models import ChatRequest, HealthResponse, UploadResponse
 from app.services.openai_compat import (
     build_upstream_messages,
     iter_ndjson_events,
     to_event,
 )
+from app.uploads import MAX_FILES_PER_REQUEST, resolve_upload, save_upload_file
 
 
 app = FastAPI(title="chatdemo-dgx-backend")
@@ -34,6 +36,27 @@ async def health() -> HealthResponse:
     )
 
 
+@app.post("/api/uploads", response_model=UploadResponse)
+async def upload_images(files: list[UploadFile] = File(...)) -> UploadResponse:
+    if not files:
+        raise HTTPException(status_code=400, detail="请至少上传一张图片")
+    if len(files) > MAX_FILES_PER_REQUEST:
+        raise HTTPException(status_code=400, detail="单次最多上传 4 张图片")
+
+    settings = get_settings()
+    uploaded_files = [
+        save_upload_file(upload_file, settings.uploads_dir) for upload_file in files
+    ]
+    return UploadResponse(files=uploaded_files)
+
+
+@app.get("/api/uploads/{upload_id}/preview")
+async def upload_preview(upload_id: str) -> FileResponse:
+    settings = get_settings()
+    metadata, binary_path = resolve_upload(upload_id, settings.uploads_dir)
+    return FileResponse(binary_path, media_type=str(metadata["mime_type"]))
+
+
 @app.post("/api/chat")
 async def chat(request: ChatRequest) -> StreamingResponse:
     if not request.messages:
@@ -46,6 +69,7 @@ async def chat(request: ChatRequest) -> StreamingResponse:
         "messages": build_upstream_messages(
             request.system_prompt,
             [message.model_dump() for message in request.messages],
+            settings.uploads_dir,
         ),
         "temperature": request.temperature,
         "max_tokens": request.max_tokens,

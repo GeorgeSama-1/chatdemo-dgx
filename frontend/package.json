@@ -3,9 +3,9 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "dev": "node ./node_modules/next/dist/bin/next dev",
+    "dev": "node ./node_modules/next/dist/bin/next dev --hostname 0.0.0.0 --port 12322",
     "build": "node ./node_modules/next/dist/bin/next build",
-    "start": "node ./node_modules/next/dist/bin/next start",
+    "start": "node ./node_modules/next/dist/bin/next start --hostname 0.0.0.0 --port 12322",
     "test": "node ./node_modules/vitest/vitest.mjs run"
   },
   "dependencies": {

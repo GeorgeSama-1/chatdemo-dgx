@@ -20,15 +20,16 @@ cleanup() {
 
 run_servers() {
   load_backend_runtime
+  resolve_runtime_settings
 
-  echo "[run] Starting backend on http://localhost:8000"
+  echo "[run] Starting backend on http://localhost:${BACKEND_PORT}"
   (
     cd "$BACKEND_DIR"
-    "$BACKEND_PYTHON" -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    "$BACKEND_PYTHON" -m uvicorn app.main:app --host 0.0.0.0 --port "$BACKEND_PORT" --reload
   ) &
   BACKEND_PID=$!
 
-  echo "[run] Starting frontend on http://localhost:3000"
+  echo "[run] Starting frontend on http://localhost:${FRONTEND_PORT}"
   (
     cd "$FRONTEND_DIR"
     "$NPM_BIN" run dev

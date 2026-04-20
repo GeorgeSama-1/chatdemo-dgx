@@ -1,10 +1,20 @@
 export type MessageRole = "system" | "user" | "assistant";
 
+export type ChatAttachment = {
+  id: string;
+  uploadId: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  previewUrl: string;
+};
+
 export type ChatMessage = {
   id: string;
   role: MessageRole;
   content: string;
   createdAt: number;
+  attachments?: ChatAttachment[];
 };
 
 export type ChatSession = {
