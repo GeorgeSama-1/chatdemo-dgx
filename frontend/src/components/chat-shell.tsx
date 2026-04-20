@@ -466,7 +466,6 @@ export function ChatShell() {
             <div className="surface-header">
               <div>
                 <p className="eyebrow">企业内部 AI 助手</p>
-                <h2>{PRODUCT_NAME}</h2>
               </div>
             </div>
 
@@ -475,7 +474,11 @@ export function ChatShell() {
             {activeSession?.messages.length ? (
               <div className="message-list">
                 {activeSession.messages.map((message) => (
-                  <MessageBubble key={message.id} message={message} />
+                  <MessageBubble
+                    key={message.id}
+                    message={message}
+                    assistantLabel={health.model || FALLBACK_MODEL}
+                  />
                 ))}
               </div>
             ) : (

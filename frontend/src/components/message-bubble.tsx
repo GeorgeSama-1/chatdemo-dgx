@@ -13,13 +13,17 @@ const roleLabel: Record<ChatMessage["role"], string> = {
 
 type MessageBubbleProps = {
   message: ChatMessage;
+  assistantLabel?: string;
 };
 
-export function MessageBubble({ message }: MessageBubbleProps) {
+export function MessageBubble({ message, assistantLabel }: MessageBubbleProps) {
+  const displayedRole =
+    message.role === "assistant" ? assistantLabel || roleLabel.assistant : roleLabel[message.role];
+
   return (
     <article className={`message-bubble message-${message.role}`}>
       <div className="message-meta">
-        <span className="message-role">{roleLabel[message.role]}</span>
+        <span className="message-role">{displayedRole}</span>
         <time dateTime={new Date(message.createdAt).toISOString()}>
           {new Date(message.createdAt).toLocaleTimeString("zh-CN", {
             hour: "2-digit",

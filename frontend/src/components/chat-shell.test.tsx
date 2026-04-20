@@ -9,6 +9,7 @@ import { ChatShell } from "./chat-shell";
 describe("ChatShell", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    window.sessionStorage.clear();
   });
 
   it("renders the branded shell and primary controls", () => {
@@ -22,9 +23,10 @@ describe("ChatShell", () => {
     render(<ChatShell />);
 
     expect(screen.getByText("BW Labs")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "博微 智能助手" })).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { level: 1, name: "博微 智能助手" })
-    ).toBeInTheDocument();
+      screen.getAllByRole("heading", { name: "博微 智能助手" })
+    ).toHaveLength(1);
     expect(screen.getByText("服务在线")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "新建会话" })).toBeInTheDocument();
     expect(screen.getByText("推荐问题")).toBeInTheDocument();
@@ -222,5 +224,44 @@ describe("ChatShell", () => {
       const sessions = stored ? (JSON.parse(stored) as Array<{ id: string }>) : [];
       expect(sessions).toHaveLength(1);
     });
+  });
+
+  it("shows the current model name as the assistant label", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.spyOn(global, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+
+      if (url.endsWith("/api/health")) {
+        return new Response(JSON.stringify({ model: "Qwen3.5-35B-A3B" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.endsWith("/api/chat")) {
+        return new Response('{"type":"delta","delta":"已收到。"}\n{"type":"done"}\n', {
+          status: 200,
+          headers: { "Content-Type": "application/x-ndjson" },
+        });
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    render(<ChatShell />);
+
+    await user.type(
+      screen.getByPlaceholderText("输入你的问题，支持多轮对话与代码问答..."),
+      "你好"
+    );
+    await user.click(screen.getByRole("button", { name: "发送" }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Qwen3.5-35B-A3B").length).toBeGreaterThanOrEqual(2);
+    });
+
+    expect(screen.queryByText("AI")).not.toBeInTheDocument();
+
+    fetchMock.mockRestore();
   });
 });
