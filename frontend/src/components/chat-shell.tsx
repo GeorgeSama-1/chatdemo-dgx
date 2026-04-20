@@ -468,13 +468,6 @@ export function ChatShell() {
                 <p className="eyebrow">企业内部 AI 助手</p>
                 <h2>{PRODUCT_NAME}</h2>
               </div>
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={() => setIsSettingsOpen((current) => !current)}
-              >
-                {isSettingsOpen ? "隐藏参数" : "显示参数"}
-              </button>
             </div>
 
             {error ? <div className="error-banner">{error}</div> : null}

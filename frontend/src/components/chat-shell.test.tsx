@@ -32,6 +32,8 @@ describe("ChatShell", () => {
       screen.getByPlaceholderText("输入你的问题，支持多轮对话与代码问答...")
     ).toBeInTheDocument();
     expect(screen.getByLabelText("system prompt 模板")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "隐藏参数" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "收起参数" })).toBeInTheDocument();
   });
 
   it("updates the system prompt textarea when switching presets", async () => {
