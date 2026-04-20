@@ -22,8 +22,13 @@ load_user_shell_env() {
   local candidate
   for candidate in "$HOME/.profile" "$HOME/.bash_profile" "$HOME/.bashrc" "$HOME/.zprofile" "$HOME/.zshrc"; do
     if [[ -f "$candidate" ]]; then
-      # shellcheck disable=SC1090
-      source "$candidate" >/dev/null 2>&1 || true
+      # Some user profiles contain interactive-only logic or even `exit`,
+      # which must not terminate our launcher. Load them in an isolated
+      # subshell so best-effort PATH setup cannot abort this script.
+      (
+        # shellcheck disable=SC1090
+        source "$candidate" >/dev/null 2>&1 || true
+      ) >/dev/null 2>&1 || true
     fi
   done
 }
