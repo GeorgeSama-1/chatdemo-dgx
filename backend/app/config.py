@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     model_name: str = "gpt-oss-chat"
     model_enable_thinking: bool = False
     backend_host: str = "0.0.0.0"
-    backend_port: int = 8000
+    backend_port: int = 22331
     request_timeout: float = 60.0
     uploads_dir: str = ".uploads"
 

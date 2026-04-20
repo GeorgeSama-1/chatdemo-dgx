@@ -48,7 +48,7 @@ chatdemo-dgx/
 ### 后端
 
 - `MODEL_BASE_URL`
-  你的 DGX OpenAI-compatible 服务地址，例如 `http://your-dgx-host:8000/v1`
+  你的 DGX OpenAI-compatible 服务地址，例如 `http://your-dgx-host:8688/v1`
 - `MODEL_API_KEY`
   模型服务 API key
 - `MODEL_NAME`
@@ -58,7 +58,7 @@ chatdemo-dgx/
 - `BACKEND_HOST`
   FastAPI 监听地址，默认 `0.0.0.0`
 - `BACKEND_PORT`
-  FastAPI 端口，默认 `8000`
+  FastAPI 端口，默认 `22331`
 - `REQUEST_TIMEOUT`
   上游请求超时时间，单位秒
 - `UPLOADS_DIR`
@@ -77,7 +77,7 @@ chatdemo-dgx/
 ### 前端
 
 - `NEXT_PUBLIC_API_BASE_URL`
-  前端访问后端的地址，例如 `http://172.20.0.160:8000`
+  前端访问后端的地址，例如 `http://172.20.0.160:22331`
 - `NEXT_PUBLIC_PRODUCT_NAME`
   产品名称
 - `NEXT_PUBLIC_BRAND_NAME`
@@ -92,17 +92,17 @@ chatdemo-dgx/
 ```bash
 cd backend
 python3 -m pip install --break-system-packages -r requirements-dev.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+uvicorn app.main:app --host 0.0.0.0 --port 22331
 ```
 
 启动后可访问：
 
-- `http://localhost:8000/api/health`
+- `http://localhost:22331/api/health`
 
 本地多模态开发推荐拓扑：
 
 - 前端：`http://127.0.0.1:12322`
-- 后端：`http://127.0.0.1:8000`
+- 后端：`http://127.0.0.1:22331`
 - 多模态模型：另一台可访问服务器上的 `vLLM/OpenAI-compatible` 接口
 - 图片先上传到本项目后端，再由后端转发给多模态模型
 
@@ -155,7 +155,7 @@ make install-only
 
 如果你已经把项目部署到 GPU 服务器，并且当前配置如下：
 
-- 后端：`172.20.0.160:8000`
+- 后端：`172.20.0.160:22331`
 - 前端：`172.20.0.160:12322`
 - 模型服务：`http://172.20.0.160:8688/v1`
 
@@ -175,7 +175,7 @@ bash ./scripts/server-start.sh
 脚本会自动：
 
 - 检查前后端依赖
-- 后台启动 FastAPI 后端 `8000`
+- 后台启动 FastAPI 后端 `22331`
 - 如有需要先构建前端
 - 后台启动 Next.js 前端 `12322`
 - 将日志写入 `.runtime/backend.log` 和 `.runtime/frontend.log`
@@ -199,7 +199,7 @@ bash ./scripts/server-stop.sh
 
 - GPU 服务器上的 `make server-start` 已执行成功
 - 你的本机可以访问 `172.20.0.160`
-- 公司内网或服务器防火墙没有拦住 `12322` 和 `8000`
+- 公司内网或服务器防火墙没有拦住 `12322` 和 `22331`
 
 满足以上条件后，你在本机浏览器里直接打开：
 
@@ -211,13 +211,27 @@ http://172.20.0.160:12322
 
 如果页面能打开但发送消息时报 `Failed to fetch`，优先检查：
 
-- GPU 服务器上的后端是否正常监听 `8000`
-- `frontend/.env.local` 中的 `NEXT_PUBLIC_API_BASE_URL` 是否为 `http://172.20.0.160:8000`
+- GPU 服务器上的后端是否正常监听 `22331`
+- `frontend/.env.local` 中的 `NEXT_PUBLIC_API_BASE_URL` 是否为 `http://172.20.0.160:22331`
 - 本机能否访问：
 
 ```bash
-curl http://172.20.0.160:8000/api/health
+curl http://172.20.0.160:22331/api/health
 ```
+
+## 端口约定
+
+当前推荐固定使用以下端口：
+
+- 模型服务：`8688`
+- 项目后端：`22331`
+- 项目前端：`12322`
+
+说明：
+
+- 不建议使用通用的 `8000-9000` 端口范围作为本项目后端端口
+- 这类端口在 GPU 服务器、Jupyter、推理服务、旧版 FastAPI 服务中很容易被占用
+- 当前选择 `22331` 和 `12322`，目的就是尽量避开常见冲突端口
 
 ## DGX 桌面图标启动
 

@@ -26,7 +26,7 @@ import { SettingsPanel } from "./settings-panel";
 
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:22331";
 const BRAND_NAME = process.env.NEXT_PUBLIC_BRAND_NAME ?? "BW Labs";
 const PRODUCT_NAME = process.env.NEXT_PUBLIC_PRODUCT_NAME ?? "博微 智能助手";
 const BRAND_ACCENT = process.env.NEXT_PUBLIC_BRAND_ACCENT ?? "#0f4c81";

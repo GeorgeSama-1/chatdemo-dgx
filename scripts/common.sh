@@ -192,7 +192,7 @@ resolve_runtime_settings() {
   if [[ -z "$BACKEND_PORT" ]]; then
     BACKEND_PORT="$(read_env_value "$BACKEND_ENV" "BACKEND_PORT")"
   fi
-  BACKEND_PORT="${BACKEND_PORT:-8000}"
+  BACKEND_PORT="${BACKEND_PORT:-22331}"
 
   FRONTEND_PORT="${FRONTEND_PORT:-12322}"
 
