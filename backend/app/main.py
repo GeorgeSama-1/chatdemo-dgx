@@ -13,7 +13,12 @@ from app.services.openai_compat import (
     iter_ndjson_events,
     to_event,
 )
-from app.uploads import MAX_FILES_PER_REQUEST, resolve_upload, save_upload_file
+from app.uploads import (
+    MAX_FILES_PER_REQUEST,
+    cleanup_expired_uploads,
+    resolve_upload,
+    save_upload_file,
+)
 
 
 app = FastAPI(title="chatdemo-dgx-backend")
@@ -44,6 +49,7 @@ async def upload_images(files: list[UploadFile] = File(...)) -> UploadResponse:
         raise HTTPException(status_code=400, detail="单次最多上传 4 张图片")
 
     settings = get_settings()
+    cleanup_expired_uploads(settings.uploads_dir, settings.upload_ttl_seconds)
     uploaded_files = [
         save_upload_file(upload_file, settings.uploads_dir) for upload_file in files
     ]

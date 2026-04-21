@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     backend_port: int = 22331
     request_timeout: float = 60.0
     uploads_dir: str = ".uploads"
+    upload_ttl_seconds: int = 86400
 
 
 @lru_cache

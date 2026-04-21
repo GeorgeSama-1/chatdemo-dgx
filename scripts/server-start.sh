@@ -37,13 +37,11 @@ start_backend() {
 }
 
 ensure_frontend_build() {
-  if [[ ! -f "$FRONTEND_DIR/.next/BUILD_ID" ]]; then
-    echo "[run] Building frontend..."
-    (
-      cd "$FRONTEND_DIR"
-      "$NPM_BIN" run build
-    )
-  fi
+  echo "[run] Building frontend..."
+  (
+    cd "$FRONTEND_DIR"
+    "$NPM_BIN" run build
+  )
 }
 
 start_frontend() {

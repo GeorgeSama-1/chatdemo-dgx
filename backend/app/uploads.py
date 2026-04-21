@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import secrets
+import time
 from pathlib import Path
 
 from fastapi import HTTPException, UploadFile
@@ -28,6 +29,32 @@ def _metadata_path(uploads_dir: Path, upload_id: str) -> Path:
 
 def _binary_path(uploads_dir: Path, upload_id: str) -> Path:
     return uploads_dir / f"{upload_id}.bin"
+
+
+def cleanup_expired_uploads(
+    uploads_dir: str | Path, ttl_seconds: int, now: float | None = None
+) -> None:
+    uploads_path = ensure_uploads_dir(uploads_dir)
+    cutoff = (now or time.time()) - ttl_seconds
+    upload_ids = {
+        path.stem
+        for path in uploads_path.glob("upl_*.*")
+        if path.suffix in {".bin", ".json"}
+    }
+
+    for upload_id in upload_ids:
+        metadata_path = _metadata_path(uploads_path, upload_id)
+        binary_path = _binary_path(uploads_path, upload_id)
+        existing_paths = [path for path in (metadata_path, binary_path) if path.exists()]
+        if not existing_paths:
+            continue
+
+        newest_mtime = max(path.stat().st_mtime for path in existing_paths)
+        if newest_mtime >= cutoff:
+            continue
+
+        for path in existing_paths:
+            path.unlink(missing_ok=True)
 
 
 def save_upload_file(upload: UploadFile, uploads_dir: str | Path) -> dict[str, str | int]:
