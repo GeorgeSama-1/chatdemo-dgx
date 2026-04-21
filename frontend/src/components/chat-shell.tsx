@@ -33,6 +33,11 @@ const BRAND_ACCENT = process.env.NEXT_PUBLIC_BRAND_ACCENT ?? "#0f4c81";
 const FALLBACK_MODEL = process.env.NEXT_PUBLIC_MODEL_LABEL ?? "gpt-oss-chat";
 const MAX_ATTACHMENTS = 4;
 
+type ValidationErrorDetail = {
+  loc?: Array<string | number>;
+  msg?: string;
+};
+
 type UploadApiFile = {
   upload_id: string;
   name: string;
@@ -71,6 +76,40 @@ function upsertSession(
   return sessions.map((session) =>
     session.id === sessionId ? updater(session) : session
   );
+}
+
+function formatApiErrorDetail(detail: unknown): string | null {
+  if (typeof detail === "string" && detail.trim()) {
+    return detail;
+  }
+
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((item) => {
+        if (!item || typeof item !== "object") {
+          return null;
+        }
+
+        const typedItem = item as ValidationErrorDetail;
+        const location =
+          typedItem.loc && typedItem.loc.length
+            ? typedItem.loc.map((part) => String(part)).join(".")
+            : "请求参数";
+
+        if (!typedItem.msg) {
+          return null;
+        }
+
+        return `${location}: ${typedItem.msg}`;
+      })
+      .filter((message): message is string => Boolean(message));
+
+    if (messages.length > 0) {
+      return messages.join("；");
+    }
+  }
+
+  return null;
 }
 
 export function ChatShell() {
@@ -287,9 +326,11 @@ export function ChatShell() {
 
       if (!response.ok) {
         const payload = (await response.json().catch(() => null)) as
-          | { detail?: string }
+          | { detail?: unknown }
           | null;
-        throw new Error(payload?.detail || "聊天请求失败，请稍后再试。");
+        throw new Error(
+          formatApiErrorDetail(payload?.detail) || "聊天请求失败，请稍后再试。"
+        );
       }
 
       if (!response.body) {

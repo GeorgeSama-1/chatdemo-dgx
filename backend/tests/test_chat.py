@@ -152,3 +152,21 @@ def test_chat_rejects_missing_attachment(tmp_path, monkeypatch) -> None:
 
     assert response.status_code == 400
     assert response.json()["detail"] == "附件不存在或已失效，请重新上传"
+
+
+def test_chat_accepts_large_max_tokens_values() -> None:
+    payload = {
+        "messages": [{"role": "user", "content": "Write a long answer"}],
+        "temperature": 0.3,
+        "max_tokens": 100000,
+    }
+
+    with patch("app.main.httpx.AsyncClient", DummyAsyncClient):
+        with client.stream("POST", "/api/chat", json=payload) as response:
+            body = "".join(
+                chunk.decode("utf-8") if isinstance(chunk, bytes) else chunk
+                for chunk in response.iter_text()
+            )
+
+    assert response.status_code == 200
+    assert '{"type":"done"}' in body

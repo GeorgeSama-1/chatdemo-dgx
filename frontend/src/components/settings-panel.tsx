@@ -52,7 +52,7 @@ export function SettingsPanel({
           <input
             type="number"
             min="1"
-            max="8192"
+            max="131072"
             step="1"
             value={settings.max_tokens}
             onChange={(event) =>

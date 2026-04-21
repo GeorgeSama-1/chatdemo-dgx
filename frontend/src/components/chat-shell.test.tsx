@@ -264,4 +264,53 @@ describe("ChatShell", () => {
 
     fetchMock.mockRestore();
   });
+
+  it("renders structured validation errors as readable text instead of object output", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.spyOn(global, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+
+      if (url.endsWith("/api/health")) {
+        return new Response(JSON.stringify({ model: "Qwen3.5-35B-A3B" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.endsWith("/api/chat")) {
+        return new Response(
+          JSON.stringify({
+            detail: [
+              {
+                loc: ["body", "max_tokens"],
+                msg: "Input should be less than or equal to 8192",
+              },
+            ],
+          }),
+          {
+            status: 422,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    render(<ChatShell />);
+
+    await user.type(
+      screen.getByPlaceholderText("输入你的问题，支持多轮对话与代码问答..."),
+      "你好"
+    );
+    await user.click(screen.getByRole("button", { name: "发送" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("body.max_tokens: Input should be less than or equal to 8192")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText("[object Object]")).not.toBeInTheDocument();
+
+    fetchMock.mockRestore();
+  });
 });
